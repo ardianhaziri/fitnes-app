@@ -6,6 +6,7 @@ import { vapi } from "@/lib/vapi";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 const GenerateProgramPage = () => {
   const [callActive, setCallActive] = useState(false);
@@ -132,14 +133,18 @@ const GenerateProgramPage = () => {
           ? `${user.firstName} ${user.lastName || ""}`.trim()
           : "There";
 
+        const token = await getToken(); // 🔐 Get secure JWT from Clerk
+
         await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-      variableValues: {
-        full_name: fullName,
-        user_id: user?.id,
-      },
-      clientMessages: [],
-      serverMessages: []
-    });
+          variableValues: {
+            full_name: fullName,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ This allows your backend to verify the user
+          },
+          clientMessages: [],
+          serverMessages: [],
+        });
 
   } catch (error) {
     console.log("Failed to start call", error)

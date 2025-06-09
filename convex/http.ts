@@ -4,6 +4,7 @@ import { Webhook } from "svix";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { verifyToken } from "@clerk/backend";
 
 const http = httpRouter();
 
@@ -126,8 +127,24 @@ http.route({
     try {
       const payload = await request.json();
 
+      // Secure Clerk token check
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const token = authHeader.replace("Bearer ", "");
+
+      let userId: string;
+      try {
+        const verified = await verifyToken(token);
+        userId = verified.userId;
+      } catch (err) {
+        console.error("Invalid token", err);
+        return new Response("Unauthorized", { status: 401 });
+      }
+
       const {
-        user_id,
         age,
         height,
         weight,
@@ -136,9 +153,8 @@ http.route({
         fitness_goal,
         fitness_level,
         dietary_restrictions,
-      } = payload;
+      } = await request.json();
 
-      console.log("Payload is here:", payload);
 
       const model = genAI.getGenerativeModel({
         model: "gemini-2.0-flash-001",
@@ -245,7 +261,7 @@ http.route({
 
       // save to our DB: CONVEX
       const planId = await ctx.runMutation(api.plans.createPlan, {
-        userId: user_id,
+        userId,
         dietPlan,
         isActive: true,
         workoutPlan,
